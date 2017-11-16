@@ -50,6 +50,8 @@ public:
    */
   uint32_t GetTotalRx () const;
 
+  void SetMaxBytes (uint32_t maxBytes);
+
   /**
    * \return pointer to listening socket
    */
@@ -72,6 +74,8 @@ private:
    * \param socket the receiving socket
    */
   void HandleRead (Ptr<Socket> socket);
+
+  void SendData (Ptr<Socket> socket, Address from); // for socket's SetSendCallback
   /**
    * \brief Handle an incoming connection
    * \param socket the incoming connection socket
@@ -96,6 +100,9 @@ private:
 
   Address         m_local;        //!< Local address to bind to
   uint32_t        m_totalRx;      //!< Total bytes received
+  uint32_t        m_sendSize;     //!< Size of data to send each time
+  uint32_t        m_maxBytes;     //!< Limit total number of bytes sent
+  uint32_t        m_totBytes;     //!< Total bytes sent so far
   TypeId          m_tid;          //!< Protocol TypeId
 
   /// Traced Callback: received packets, source address.

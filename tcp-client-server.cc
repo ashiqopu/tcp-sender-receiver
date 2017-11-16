@@ -38,9 +38,9 @@
 #include "ns3/udp-socket.h"
 #include "ns3/udp-socket-factory.h"
 
-#include "tcp-client-application.h"
+//#include "tcp-client-application.h"
 #include "tcp-server-application.h"
-#include "tcp-client-application-helper.h"
+//#include "tcp-client-application-helper.h"
 #include "tcp-server-application-helper.h"
 
 using namespace ns3;
@@ -48,234 +48,11 @@ using namespace ns3;
 NS_LOG_COMPONENT_DEFINE ("TcpClientServerExample");
 
 Ipv4InterfaceContainer inetFace;
-
-/************************************************************************************/
-
-TypeId
-TcpClientApplication::GetTypeId (void)
-{
-  static TypeId tid = TypeId ("ns3::TcpClientApplication")
-    .SetParent<Application> ()
-    .SetGroupName("Applications") 
-    .AddConstructor<TcpClientApplication> ()
-    .AddAttribute ("Remote", "The address of the destination",
-                   AddressValue (),
-                   MakeAddressAccessor (&TcpClientApplication::m_peer),
-                   MakeAddressChecker ())
-    .AddTraceSource ("Tx", "A new packet is created and is sent",
-                     MakeTraceSourceAccessor (&TcpClientApplication::m_txTrace),
-                     "ns3::Packet::TracedCallback")
-    .AddTraceSource ("Rx",
-                     "A packet has been received",
-                     MakeTraceSourceAccessor (&TcpClientApplication::m_rxTrace),
-                     "ns3::Packet::PacketAddressTracedCallback")
-  ;
-  return tid;
-}
-
-
-TcpClientApplication::TcpClientApplication ()
-  : m_socket (0),
-    m_connected (false)
-{
-  NS_LOG_FUNCTION (this);
-  m_totalRx = 0;
-}
-
-TcpClientApplication::~TcpClientApplication ()
-{
-  NS_LOG_FUNCTION (this);
-}
-
-uint32_t TcpClientApplication::GetTotalRx () const
-{
-  NS_LOG_FUNCTION (this);
-  return m_totalRx;
-}
-
-Ptr<Socket>
-TcpClientApplication::GetSocket (void) const
-{
-  NS_LOG_FUNCTION (this);
-  return m_socket;
-}
-
-void
-TcpClientApplication::DoDispose (void)
-{
-  NS_LOG_FUNCTION (this);
-  m_socket = 0;
-  Application::DoDispose ();
-}
-
-// Application Methods
-void TcpClientApplication::StartApplication (void) // Called at time specified by Start
-{
-  NS_LOG_FUNCTION (this);
-
-  m_tid = TypeId::LookupByName ("ns3::TcpSocketFactory");
-  // Create the socket if not already
-  if (!m_socket)
-    {
-      m_socket = Socket::CreateSocket (GetNode (), m_tid);
-
-      // Fatal error if socket type is not NS3_SOCK_STREAM or NS3_SOCK_SEQPACKET
-      if (m_socket->GetSocketType () != Socket::NS3_SOCK_STREAM &&
-          m_socket->GetSocketType () != Socket::NS3_SOCK_SEQPACKET)
-        {
-          NS_FATAL_ERROR ("Use TCP instead of UDP.");
-        }
-      if (InetSocketAddress::IsMatchingType (m_peer))
-        {
-          m_socket->Bind ();
-        }
-
-      m_socket->Connect (m_peer);
-      //m_socket->ShutdownRecv ();
-      m_socket->SetConnectCallback (
-        MakeCallback (&TcpClientApplication::ConnectionSucceeded, this),
-        MakeCallback (&TcpClientApplication::ConnectionFailed, this));
-      m_socket->SetSendCallback (
-        MakeCallback (&TcpClientApplication::DataSend, this));
-      m_socket->SetRecvCallback (
-        MakeCallback (&TcpClientApplication::HandleRead, this));
-    }
-  if (m_connected)
-    {
-      SendData ();
-    }
-}
-
-void TcpClientApplication::StopApplication (void) // Called at time specified by Stop
-{
-  NS_LOG_FUNCTION (this);
-
-  if (m_socket != 0)
-    {
-      m_socket->Close ();
-      m_connected = false;
-    }
-  else
-    {
-      NS_LOG_WARN ("TcpClientApplication found null socket to close in StopApplication");
-    }
-}
-
-
-// Private helpers
-
-void TcpClientApplication::SendData (void)
-{
-  NS_LOG_FUNCTION (this);
-
-  NS_LOG_LOGIC ("sending packet at " << Simulator::Now ());
-  Ptr<Packet> packet = Create<Packet> (100);
-  m_txTrace (packet);
-  m_socket->Send (packet);
-
-  HandleRead(m_socket);
-  
-  //m_socket->Close ();
-  //m_connected = false;
-}
-
-void TcpClientApplication::HandleRead (Ptr<Socket> socket)
-{
-  NS_LOG_FUNCTION (this << socket);
-  Ptr<Packet> packet;
-  Address from;
-  while ((packet = socket->RecvFrom (from)))
-    {
-      if (packet->GetSize () == 0)
-        { //EOF
-          break;
-        }
-      m_totalRx += packet->GetSize ();
-      if (InetSocketAddress::IsMatchingType (from))
-        {
-          NS_LOG_INFO ("At time " << Simulator::Now ().GetSeconds ()
-                       << "s packet sink received "
-                       <<  packet->GetSize () << " bytes from "
-                       << InetSocketAddress::ConvertFrom(from).GetIpv4 ()
-                       << " port " << InetSocketAddress::ConvertFrom (from).GetPort ()
-                       << " total Rx " << m_totalRx << " bytes");
-        }
-      m_rxTrace (packet, from);
-      socket->SendTo(packet, 0, from);
-    }
-}
-
-void TcpClientApplication::ConnectionSucceeded (Ptr<Socket> socket)
-{
-  NS_LOG_FUNCTION (this << socket);
-  NS_LOG_LOGIC ("TcpClientApplication Connection succeeded");
-  m_connected = true;
-  SendData ();
-}
-
-void TcpClientApplication::ConnectionFailed (Ptr<Socket> socket)
-{
-  NS_LOG_FUNCTION (this << socket);
-  NS_LOG_LOGIC ("TcpClientApplication, Connection Failed");
-}
-
-void TcpClientApplication::DataSend (Ptr<Socket>, uint32_t)
-{
-  NS_LOG_FUNCTION (this);
-
-  if (m_connected)
-    { // Only send new data if the connection has completed
-      SendData ();
-    }
-}
-
-/************************************************************************************/
-
-TcpClientApplicationHelper::TcpClientApplicationHelper (Address address)
-{
-  m_factory.SetTypeId (TcpClientApplication::GetTypeId());
-  SetAttribute ("Remote", AddressValue (address));
-}
-
-void
-TcpClientApplicationHelper::SetAttribute (std::string name, const AttributeValue &value)
-{
-  m_factory.Set (name, value);
-}
-
-ApplicationContainer
-TcpClientApplicationHelper::Install (Ptr<Node> node) const
-{
-  return ApplicationContainer (InstallPriv (node));
-}
-
-ApplicationContainer
-TcpClientApplicationHelper::Install (std::string nodeName) const
-{
-  Ptr<Node> node = Names::Find<Node> (nodeName);
-  return ApplicationContainer (InstallPriv (node));
-}
-
-ApplicationContainer
-TcpClientApplicationHelper::Install (NodeContainer c) const
-{
-  ApplicationContainer apps;
-  for (NodeContainer::Iterator i = c.Begin (); i != c.End (); ++i)
-    {
-      apps.Add (InstallPriv (*i));
-    }
-
-  return apps;
-}
-
-Ptr<Application>
-TcpClientApplicationHelper::InstallPriv (Ptr<Node> node) const
-{
-  Ptr<Application> app = m_factory.Create<Application> ();
-  node->AddApplication (app);
-
-  return app;
-}
+uint32_t c_totalRx = 0;
+double timeCounter = 0.0;
+bool ipChanged = false;
+bool connected = false;
+bool sv_connected = false;
 
 /************************************************************************************/
 
@@ -291,6 +68,18 @@ TcpServerApplication::GetTypeId (void)
                    AddressValue (),
                    MakeAddressAccessor (&TcpServerApplication::m_local),
                    MakeAddressChecker ())
+    .AddAttribute ("SendSize", "The amount of data to send each time.",
+                   UintegerValue (512),
+                   MakeUintegerAccessor (&TcpServerApplication::m_sendSize),
+                   MakeUintegerChecker<uint32_t> (1))
+    .AddAttribute ("MaxBytes",
+                   "The total number of bytes to send. "
+                   "Once these bytes are sent, "
+                   "no data  is sent again. The value zero means "
+                   "that there is no limit.",
+                   UintegerValue (0),
+                   MakeUintegerAccessor (&TcpServerApplication::m_maxBytes),
+                   MakeUintegerChecker<uint32_t> ())
     .AddTraceSource ("Tx", "A new packet is created and is sent",
                      MakeTraceSourceAccessor (&TcpServerApplication::m_txTrace),
                      "ns3::Packet::TracedCallback")
@@ -307,6 +96,7 @@ TcpServerApplication::TcpServerApplication ()
   NS_LOG_FUNCTION (this);
   m_socket = 0;
   m_totalRx = 0;
+  m_totBytes = 0;
 }
 
 TcpServerApplication::~TcpServerApplication()
@@ -318,6 +108,13 @@ uint32_t TcpServerApplication::GetTotalRx () const
 {
   NS_LOG_FUNCTION (this);
   return m_totalRx;
+}
+
+void
+TcpServerApplication::SetMaxBytes (uint32_t maxBytes)
+{
+  NS_LOG_FUNCTION (this << maxBytes);
+  m_maxBytes = maxBytes;
 }
 
 Ptr<Socket>
@@ -382,6 +179,46 @@ void TcpServerApplication::StopApplication ()     // Called at time specified by
     }
 }
 
+void TcpServerApplication::SendData (Ptr<Socket> sock, Address from)
+{
+  NS_LOG_FUNCTION (this << sock);
+
+  if(sv_connected)
+  {
+    while (m_maxBytes == 0 || m_totBytes < m_maxBytes)
+      { // Time to send more
+        uint32_t toSend = m_sendSize;
+        // Make sure we don't send too many
+        if (m_maxBytes > 0)
+          {
+            toSend = std::min (m_sendSize, m_maxBytes - m_totBytes);
+          }
+        NS_LOG_LOGIC ("sending packet at " << Simulator::Now ());
+        Ptr<Packet> packet = Create<Packet> (toSend);
+        m_txTrace (packet);
+        int actual = sock->SendTo (packet, 0, from);
+        if (actual > 0)
+          {
+            m_totBytes += actual;
+          }
+        // We exit this loop when actual < toSend as the send side
+        // buffer is full. The "DataSent" callback will pop when
+        // some buffer space has freed ip.
+        if ((unsigned)actual != toSend)
+          {
+            break;
+          }
+      }
+    }
+  // Check if time to close (all sent)
+  if (m_totBytes == m_maxBytes && sv_connected)
+    {
+      sv_connected = false;
+      m_totBytes = 0;
+      sock->Close ();
+    }
+}
+
 void TcpServerApplication::HandleRead (Ptr<Socket> socket)
 {
   NS_LOG_FUNCTION (this << socket);
@@ -404,10 +241,15 @@ void TcpServerApplication::HandleRead (Ptr<Socket> socket)
                        << " total Rx " << m_totalRx << " bytes");
         }
       m_rxTrace (packet, from);
-      pktSend = Create<Packet> (200);
-      m_txTrace (pktSend);
-      socket->SendTo(pktSend, 0, from);
+      if (packet->GetSize () == 13)
+        { //EOF
+          break;
+        }
     }
+  if (packet->GetSize () == 13)
+  { //EOF
+    SendData(socket, from);
+  }
 }
 
 
@@ -428,6 +270,7 @@ void TcpServerApplication::HandleAccept (Ptr<Socket> s, const Address& from)
   s->SetRecvCallback (MakeCallback (&TcpServerApplication::HandleRead, this));
   //s->SetSendCallback (MakeCallback (&TcpServerApplication::DataSend, this));
   m_socketList.push_back (s);
+  sv_connected = true;
 }
 
 /************************************************************************************/
@@ -480,14 +323,78 @@ TcpServerApplicationHelper::InstallPriv (Ptr<Node> node) const
 
 /************************************************************************************/
 
-void changeAddress(Ptr<Node> node, ApplicationContainer app)
+void HandleRead (Ptr<Socket> socket)
 {
-  std::pair< Ptr<Ipv4>, uint32_t > face = inetFace.Get(0);
-  node->GetObject<Ipv4>()->RemoveAddress(face.second,"10.1.1.1");
-  node->GetObject<Ipv4>()->AddAddress(face.second,
-                                   Ipv4InterfaceAddress(Ipv4Address("10.1.1.3"),
-                                   Ipv4Mask("255.255.255.0")));
-  printf(">>> IP changed <<<\n");
+  Ptr<Packet> packet;
+  Address from;
+  while ((packet = socket->RecvFrom (from)))
+    {
+      if (packet->GetSize () == 0)
+        { //EOF
+          break;
+        }
+      c_totalRx += packet->GetSize ();
+      if (InetSocketAddress::IsMatchingType (from))
+        {
+          NS_LOG_INFO ("At time " << Simulator::Now ().GetSeconds ()
+                       << "s packet sink received "
+                       <<  packet->GetSize () << " bytes from "
+                       << InetSocketAddress::ConvertFrom(from).GetIpv4 ()
+                       << " port " << InetSocketAddress::ConvertFrom (from).GetPort ()
+                       << " total Rx " << c_totalRx << " bytes");
+        }
+    }
+}
+
+void SendData(Ptr<Socket> sock, uint32_t i)
+{
+  if(connected)
+  {
+    Ptr<Packet> packet = Create<Packet> (13);
+    sock->Send(packet);
+    HandleRead(sock);
+  }
+}
+
+void dynamicClient(Ptr<Node> node, Ptr<Socket> clientSock,
+                   Ipv4Address servAddress, uint16_t servPort,
+                   ApplicationContainer serverApps)
+{
+  timeCounter += 0.1;
+  if (timeCounter > 6.0 && ipChanged == false)
+  {
+    std::pair< Ptr<Ipv4>, uint32_t > face = inetFace.Get(0);
+    node->GetObject<Ipv4>()->RemoveAddress(face.second,"10.1.1.1");
+    node->GetObject<Ipv4>()->AddAddress(face.second,
+                                     Ipv4InterfaceAddress(Ipv4Address("10.1.1.3"),
+                                     Ipv4Mask("255.255.255.0")));
+
+    Ptr<TcpServerApplication> sink1 = DynamicCast<TcpServerApplication> (serverApps.Get (0));
+    std::cout << "Server Total Bytes Received: " << sink1->GetTotalRx () << std::endl;
+    std::cout << "Client Total Bytes Received: " << c_totalRx << std::endl;
+
+    printf(">>> IP changed <<<\n");
+    ipChanged = true;
+    connected = false;
+    c_totalRx = 0;
+    //clientSock->Close();
+  }
+  if(c_totalRx == 15*1024)
+  {
+    connected = false;
+  }
+  else if(connected == false)
+  {
+    if(clientSock->Connect (InetSocketAddress (servAddress, servPort)) != -1)
+    {
+      connected = true;
+      clientSock->SetSendCallback (MakeCallback(&SendData));
+      clientSock->SetRecvCallback (MakeCallback(&HandleRead));
+      SendData(clientSock, 0);
+    }
+  }
+  Simulator::Schedule(Seconds(0.1), &dynamicClient, node,
+                      clientSock, servAddress, servPort, serverApps);
 }
 
 int
@@ -495,7 +402,7 @@ main (int argc, char *argv[])
 {
 
   bool tracing = true;
-  uint32_t maxBytes = 100;
+  uint32_t maxBytes = (15*1024);
 
 //
 // Allow the user to override any of the defaults at
@@ -547,17 +454,17 @@ main (int argc, char *argv[])
 //
   uint16_t port = 9;  // well-known echo port number
 
+  Ptr<Socket> clientSock = Socket::CreateSocket (nodes.Get(0), 
+    TypeId::LookupByName ("ns3::TcpSocketFactory"));
 
-  TcpClientApplicationHelper client (InetSocketAddress (inetFace.GetAddress (1), port));
-  // Set the amount of data to send in bytes.  Zero is unlimited.
-  ApplicationContainer clientApps = client.Install (nodes.Get (0));
-  clientApps.Start (Seconds (0.0));
-  clientApps.Stop (Seconds (10.0));
+  clientSock->Bind();
 
+  Ipv4Address dstaddr ("10.1.1.2");
 //
 // Create a TcpServerApplicationApplication and install it on node 1
 //
   TcpServerApplicationHelper server (InetSocketAddress (Ipv4Address::GetAny (), port));
+  server.SetAttribute ("MaxBytes", UintegerValue (maxBytes));
   ApplicationContainer serverApps = server.Install (nodes.Get (1));
   serverApps.Start (Seconds (0.0));
   serverApps.Stop (Seconds (10.0));
@@ -577,7 +484,8 @@ main (int argc, char *argv[])
 //
   NS_LOG_INFO ("Run Simulation.");
 
-  //Simulator::Schedule(Seconds(6.0), &changeAddress, nodes.Get (0), clientApps.Get(0));
+  Simulator::Schedule(Seconds(0.1), &dynamicClient, nodes.Get (0),
+                      clientSock, dstaddr, port, serverApps);
 
   Simulator::Stop (Seconds (10.0));
   Simulator::Run ();
@@ -585,8 +493,7 @@ main (int argc, char *argv[])
   NS_LOG_INFO ("Done.");
 
   Ptr<TcpServerApplication> sink1 = DynamicCast<TcpServerApplication> (serverApps.Get (0));
-  std::cout << "Total Bytes Received: " << sink1->GetTotalRx () << std::endl;
+  std::cout << "Server Total Bytes Received: " << sink1->GetTotalRx () << std::endl;
 
-  Ptr<TcpClientApplication> sink2 = DynamicCast<TcpClientApplication> (clientApps.Get (0));
-  std::cout << "Total Bytes Received: " << sink2->GetTotalRx () << std::endl;
+  std::cout << "Client Total Bytes Received: " << c_totalRx << std::endl;
 }
