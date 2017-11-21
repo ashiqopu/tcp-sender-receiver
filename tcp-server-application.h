@@ -26,6 +26,11 @@
 #include "ns3/ptr.h"
 #include "ns3/traced-callback.h"
 #include "ns3/address.h"
+#include <map>
+#include "ns3/object-factory.h"
+#include "ns3/ipv4-address.h"
+#include "ns3/node-container.h"
+#include "ns3/application-container.h"
 
 namespace ns3 {
 
@@ -97,7 +102,7 @@ private:
   // listening socket is stored separately from the accepted sockets
   Ptr<Socket>     m_socket;       //!< Listening socket
   std::list<Ptr<Socket> > m_socketList; //!< the accepted sockets
-
+  std::map<Address,bool> sv_connected; // list of connected clients
   Address         m_local;        //!< Local address to bind to
   uint32_t        m_totalRx;      //!< Total bytes received
   uint32_t        m_sendSize;     //!< Size of data to send each time
@@ -109,6 +114,74 @@ private:
   TracedCallback<Ptr<const Packet> > m_txTrace;
   TracedCallback<Ptr<const Packet>, const Address &> m_rxTrace;
 
+};
+
+/**
+ * \ingroup tcpserver
+ * \brief A helper to make it easier to instantiate an ns3::TcpServerApplication
+ * on a set of nodes.
+ */
+class TcpServerApplicationHelper
+{
+public:
+  /**
+   * Create a TcpServerApplicationHelper to make it easier to work with TcpServerApplications
+   *
+   * \param protocol the name of the protocol to use to receive traffic
+   *        This string identifies the socket factory type used to create
+   *        sockets for the applications.  A typical value would be 
+   *        ns3::TcpSocketFactory.
+   * \param address the address of the sink,
+   *
+   */
+  TcpServerApplicationHelper (Address address);
+
+  /**
+   * Helper function used to set the underlying application attributes.
+   *
+   * \param name the name of the application attribute to set
+   * \param value the value of the application attribute to set
+   */
+  void SetAttribute (std::string name, const AttributeValue &value);
+
+  /**
+   * Install an ns3::TcpServerApplication on each node of the input container
+   * configured with all the attributes set with SetAttribute.
+   *
+   * \param c NodeContainer of the set of nodes on which a TcpServerApplication 
+   * will be installed.
+   * \returns Container of Ptr to the applications installed.
+   */
+  ApplicationContainer Install (NodeContainer c) const;
+
+  /**
+   * Install an ns3::TcpServerApplication on each node of the input container
+   * configured with all the attributes set with SetAttribute.
+   *
+   * \param node The node on which a TcpServerApplication will be installed.
+   * \returns Container of Ptr to the applications installed.
+   */
+  ApplicationContainer Install (Ptr<Node> node) const;
+
+  /**
+   * Install an ns3::TcpServerApplication on each node of the input container
+   * configured with all the attributes set with SetAttribute.
+   *
+   * \param nodeName The name of the node on which a TcpServerApplication will be installed.
+   * \returns Container of Ptr to the applications installed.
+   */
+  ApplicationContainer Install (std::string nodeName) const;
+
+private:
+  /**
+   * Install an ns3::TcpServer on the node configured with all the
+   * attributes set with SetAttribute.
+   *
+   * \param node The node on which an TcpServer will be installed.
+   * \returns Ptr to the application installed.
+   */
+  Ptr<Application> InstallPriv (Ptr<Node> node) const;
+  ObjectFactory m_factory; //!< Object factory.
 };
 
 } // namespace ns3
