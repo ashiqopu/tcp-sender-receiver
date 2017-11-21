@@ -41,6 +41,7 @@ using namespace ns3;
 NS_LOG_COMPONENT_DEFINE ("TcpClientServerExample");
 
 uint16_t port = 9;  // well-known echo port number
+double firstIPchange = 0.3;
 ApplicationContainer clientApps;
 ApplicationContainer serverApps;
 
@@ -49,7 +50,7 @@ ApplicationContainer serverApps;
 void dynamicClient(Ptr<Node> node, int id, Ipv4Address servAddress,
 									 Ipv4InterfaceContainer inetFace, bool ipChanged)
 {
-  if (Simulator::Now().GetSeconds() > 0.4 && Simulator::Now().GetSeconds() < 0.6 && !ipChanged)
+  if (Simulator::Now().GetSeconds() > firstIPchange && Simulator::Now().GetSeconds() < (firstIPchange+0.2) && !ipChanged)
   {
     std::cout << "At time " << Simulator::Now().GetSeconds() << std::endl;
 
@@ -152,6 +153,8 @@ main (int argc, char *argv[])
   cmd.AddValue ("tracing", "Flag to enable/disable tracing", tracing);
   cmd.AddValue ("maxBytes",
                 "Total number of bytes for application to send", maxBytes);
+  cmd.AddValue ("firstIPchange",
+                "Time for first IP change", firstIPchange);
   cmd.Parse (argc, argv);
 
 //
