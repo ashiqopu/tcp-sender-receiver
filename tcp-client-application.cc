@@ -91,7 +91,7 @@ void TcpClientApplication::StartConnection (void)
 {
   NS_LOG_FUNCTION (this);
 
-  m_socket = 0;
+  //m_socket = 0;
 
   /*if (m_socket != 0)
     {
@@ -104,9 +104,9 @@ void TcpClientApplication::StartConnection (void)
 
   m_tid = TypeId::LookupByName ("ns3::TcpSocketFactory");
   // Create the socket if not already
-  if (!m_socket)
+  if (m_socket)
     {
-      m_socket = Socket::CreateSocket (GetNode (), m_tid);
+      /*m_socket = Socket::CreateSocket (GetNode (), m_tid);
 
       // Fatal error if socket type is not NS3_SOCK_STREAM or NS3_SOCK_SEQPACKET
       if (m_socket->GetSocketType () != Socket::NS3_SOCK_STREAM &&
@@ -114,7 +114,7 @@ void TcpClientApplication::StartConnection (void)
         {
           NS_FATAL_ERROR ("Use TCP instead of UDP.");
         }
-      /*if (InetSocketAddress::IsMatchingType (m_peer))
+      if (InetSocketAddress::IsMatchingType (m_peer))
         {
           m_socket->Bind ();
         }*/
@@ -139,6 +139,36 @@ void TcpClientApplication::StartConnection (void)
 void TcpClientApplication::StartApplication (void) // Called at time specified by Start
 {
   NS_LOG_FUNCTION (this);
+   m_tid = TypeId::LookupByName ("ns3::TcpSocketFactory");
+  // Create the socket if not already
+  if (!m_socket)
+    {
+      m_socket = Socket::CreateSocket (GetNode (), m_tid);
+
+      // Fatal error if socket type is not NS3_SOCK_STREAM or NS3_SOCK_SEQPACKET
+      if (m_socket->GetSocketType () != Socket::NS3_SOCK_STREAM &&
+          m_socket->GetSocketType () != Socket::NS3_SOCK_SEQPACKET)
+        {
+          NS_FATAL_ERROR ("Use TCP instead of UDP.");
+        }
+      /*if (InetSocketAddress::IsMatchingType (m_peer))
+        {
+          m_socket->Bind ();
+        }*/
+      m_socket->Connect (m_peer);
+      //m_socket->ShutdownRecv ();
+      m_socket->SetConnectCallback (
+        MakeCallback (&TcpClientApplication::ConnectionSucceeded, this),
+        MakeCallback (&TcpClientApplication::ConnectionFailed, this));
+      m_socket->SetSendCallback (
+        MakeCallback (&TcpClientApplication::DataSend, this));
+      m_socket->SetRecvCallback (
+        MakeCallback (&TcpClientApplication::HandleRead, this));
+    }
+  if (m_connected)
+    {
+      SendData ();
+    }
 }
 
 void TcpClientApplication::StopApplication (void) // Called at time specified by Stop

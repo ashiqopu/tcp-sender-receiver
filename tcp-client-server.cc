@@ -49,7 +49,7 @@ ApplicationContainer serverApps;
 void dynamicClient(Ptr<Node> node, int id, Ipv4Address servAddress,
 									 Ipv4InterfaceContainer inetFace, bool ipChanged)
 {
-  if (Simulator::Now().GetSeconds() > 0.2 && Simulator::Now().GetSeconds() < 0.4 && !ipChanged)
+  if (Simulator::Now().GetSeconds() > 0.4 && Simulator::Now().GetSeconds() < 0.6 && !ipChanged)
   {
     std::cout << "At time " << Simulator::Now().GetSeconds() << std::endl;
 
@@ -214,6 +214,11 @@ main (int argc, char *argv[])
   clientApps.Start (Seconds (0.0));
   clientApps.Stop (Seconds (10.0));
 
+  for(int i=0; i<2; i++){
+    Ptr<TcpClientApplication> client = DynamicCast<TcpClientApplication> (clientApps.Get (i));
+    client->StartConnection();
+  }
+
   Ipv4Address dstaddr ("10.1.3.1");
 //
 // Create a TcpServerApplicationApplication and install it on node 1
@@ -238,11 +243,6 @@ main (int argc, char *argv[])
 // Now, do the actual simulation.
 //
   NS_LOG_INFO ("Run Simulation.");
-
-  for(int i=0; i<2; i++){
-	  Ptr<TcpClientApplication> client = DynamicCast<TcpClientApplication> (clientApps.Get (i));
-	  client->StartConnection();
-  }
 
   Simulator::Schedule(Seconds(0.1), &dynamicClient, nodes.Get (0), 0,
                       dstaddr, i0i2, ipChanged[0]);
